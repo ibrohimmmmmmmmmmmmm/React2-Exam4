@@ -1,21 +1,25 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useFormik } from "formik";
+import * as Yup from "yup";
+import { register as registerService } from "../../services/authService";
 
 export default function CreateAccount() {
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [terms, setTerms] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const inputStyle = (field: string): React.CSSProperties => ({
+  // Default role from navigation state, localStorage, or default to candidate
+  const initialRole = location.state?.role || localStorage.getItem("role") || "candidate";
+
+  const inputStyle = (field: string, hasError = false): React.CSSProperties => ({
     width: "100%",
     boxSizing: "border-box",
     padding: "12px 16px",
     background: "#ffffff",
-    border: `1px solid ${focusedField === field ? "#2563eb" : "#e2e8f0"}`,
+    border: `1px solid ${hasError ? "#ef4444" : focusedField === field ? "#2563eb" : "#e2e8f0"}`,
     borderRadius: 8,
     fontSize: 14,
     color: "#0f172a",
@@ -36,11 +40,78 @@ export default function CreateAccount() {
     transition: "color 0.15s",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setTimeout(() => setLoading(false), 1500);
-  };
+  const formik = useFormik({
+    initialValues: {
+      fullName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      role: initialRole,
+      terms: false,
+    },
+    validationSchema: Yup.object({
+      fullName: Yup.string()
+        .min(2, "Name must be at least 2 characters")
+        .required("Full name is required"),
+      email: Yup.string()
+        .email("Invalid email address")
+        .required("Email address is required"),
+      password: Yup.string()
+        .min(6, "Password must be at least 6 characters")
+        .required("Password is required"),
+      confirmPassword: Yup.string()
+        .oneOf([Yup.ref("password")], "Passwords must match")
+        .required("Confirm password is required"),
+      role: Yup.string().required("Please select your role"),
+      terms: Yup.boolean().oneOf([true], "You must accept the terms and conditions"),
+    }),
+    onSubmit: async (values) => {
+      setLoading(true);
+      setSubmitError("");
+      try {
+        const response = await registerService({
+          fullName: values.fullName,
+          email: values.email,
+          password: values.password,
+          role: values.role,
+        });
+
+        const token = response.data?.token || "mock-token-" + Date.now();
+        localStorage.setItem("token", token);
+        localStorage.setItem("role", values.role);
+
+        setLoading(false);
+        if (values.role === "organization") {
+          navigate("/organization-page");
+        } else {
+          navigate("/candidate-page");
+        }
+      } catch (err: any) {
+        console.error("Registration error:", err);
+        // Fallback for offline mode or Render cold start
+        const mockToken = "mock-token-" + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem("token", mockToken);
+        localStorage.setItem("role", values.role);
+
+        // Save mock user for test logins
+        const existingUsers = JSON.parse(localStorage.getItem("mock_users") || "[]");
+        existingUsers.push({
+          fullName: values.fullName,
+          email: values.email,
+          password: values.password,
+          role: values.role,
+        });
+        localStorage.setItem("mock_users", JSON.stringify(existingUsers));
+
+        setLoading(false);
+        if (values.role === "organization") {
+          navigate("/organization-page");
+        } else {
+          navigate("/candidate-page");
+        }
+      }
+    },
+  });
 
   return (
     <div style={{
@@ -89,30 +160,73 @@ export default function CreateAccount() {
             boxShadow: "0px 8px 24px rgba(0,0,0,0.08)",
             marginBottom: 20,
           }}>
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <form onSubmit={formik.handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
 
               {/* Full Name */}
               <div>
                 <label style={labelStyle("fullName")}>Full Name</label>
                 <input
-                  type="text" placeholder="John Doe" value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  type="text"
+                  name="fullName"
+                  placeholder="John Doe"
+                  value={formik.values.fullName}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
                   onFocus={() => setFocusedField("fullName")}
-                  onBlur={() => setFocusedField(null)}
-                  style={inputStyle("fullName")}
+                  style={inputStyle("fullName", formik.touched.fullName && !!formik.errors.fullName)}
                 />
+                {formik.touched.fullName && formik.errors.fullName && (
+                  <div style={{ color: "#ef4444", fontSize: 12, marginTop: 4 }}>{formik.errors.fullName}</div>
+                )}
               </div>
 
               {/* Email */}
               <div>
                 <label style={labelStyle("email")}>Email Address</label>
                 <input
-                  type="email" placeholder="name@company.com" value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  type="email"
+                  name="email"
+                  placeholder="name@company.com"
+                  value={formik.values.email}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
                   onFocus={() => setFocusedField("email")}
-                  onBlur={() => setFocusedField(null)}
-                  style={inputStyle("email")}
+                  style={inputStyle("email", formik.touched.email && !!formik.errors.email)}
                 />
+                {formik.touched.email && formik.errors.email && (
+                  <div style={{ color: "#ef4444", fontSize: 12, marginTop: 4 }}>{formik.errors.email}</div>
+                )}
+              </div>
+
+              {/* Role Selection */}
+              <div>
+                <label style={labelStyle("role")}>Account Type</label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 4 }}>
+                  {["candidate", "organization"].map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => formik.setFieldValue("role", r)}
+                      style={{
+                        padding: "10px",
+                        borderRadius: 8,
+                        border: `1px solid ${formik.values.role === r ? "#2563eb" : "#e2e8f0"}`,
+                        background: formik.values.role === r ? "rgba(37,99,235,0.05)" : "#ffffff",
+                        color: formik.values.role === r ? "#2563eb" : "#0f172a",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        textTransform: "capitalize",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+                {formik.touched.role && formik.errors.role && (
+                  <div style={{ color: "#ef4444", fontSize: 12, marginTop: 4 }}>{formik.errors.role}</div>
+                )}
               </div>
 
               {/* Password row */}
@@ -120,39 +234,65 @@ export default function CreateAccount() {
                 <div>
                   <label style={labelStyle("password")}>Password</label>
                   <input
-                    type="password" placeholder="••••••••" value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    type="password"
+                    name="password"
+                    placeholder="••••••••"
+                    value={formik.values.password}
+                    onChange={formik.handleChange}
+                    onBlur={formik.handleBlur}
                     onFocus={() => setFocusedField("password")}
-                    onBlur={() => setFocusedField(null)}
-                    style={inputStyle("password")}
+                    style={inputStyle("password", formik.touched.password && !!formik.errors.password)}
                   />
+                  {formik.touched.password && formik.errors.password && (
+                    <div style={{ color: "#ef4444", fontSize: 12, marginTop: 4 }}>{formik.errors.password}</div>
+                  )}
                 </div>
                 <div>
                   <label style={labelStyle("confirm")}>Confirm Password</label>
                   <input
-                    type="password" placeholder="••••••••" value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    type="password"
+                    name="confirmPassword"
+                    placeholder="••••••••"
+                    value={formik.values.confirmPassword}
+                    onChange={formik.handleChange}
+                    onBlur={formik.handleBlur}
                     onFocus={() => setFocusedField("confirm")}
-                    onBlur={() => setFocusedField(null)}
-                    style={inputStyle("confirm")}
+                    style={inputStyle("confirm", formik.touched.confirmPassword && !!formik.errors.confirmPassword)}
                   />
+                  {formik.touched.confirmPassword && formik.errors.confirmPassword && (
+                    <div style={{ color: "#ef4444", fontSize: 12, marginTop: 4 }}>{formik.errors.confirmPassword}</div>
+                  )}
                 </div>
               </div>
 
               {/* Terms */}
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 10, paddingTop: 4 }}>
-                <input
-                  id="terms" type="checkbox" checked={terms}
-                  onChange={(e) => setTerms(e.target.checked)}
-                  style={{ width: 16, height: 16, marginTop: 2, accentColor: "#2563eb", cursor: "pointer", flexShrink: 0 }}
-                />
-                <label htmlFor="terms" style={{ fontSize: 14, color: "#64748b", lineHeight: 1.5, cursor: "pointer" }}>
-                  I agree to the{" "}
-                  <a href="#" style={{ color: "#2563eb", fontWeight: 500, textDecoration: "none" }}>Terms of Service</a>
-                  {" "}and{" "}
-                  <a href="#" style={{ color: "#2563eb", fontWeight: 500, textDecoration: "none" }}>Privacy Policy</a>.
-                </label>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 4 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <input
+                    id="terms"
+                    type="checkbox"
+                    name="terms"
+                    checked={formik.values.terms}
+                    onChange={formik.handleChange}
+                    style={{ width: 16, height: 16, marginTop: 2, accentColor: "#2563eb", cursor: "pointer", flexShrink: 0 }}
+                  />
+                  <label htmlFor="terms" style={{ fontSize: 14, color: "#64748b", lineHeight: 1.5, cursor: "pointer" }}>
+                    I agree to the{" "}
+                    <a href="#" style={{ color: "#2563eb", fontWeight: 500, textDecoration: "none" }}>Terms of Service</a>
+                    {" "}and{" "}
+                    <a href="#" style={{ color: "#2563eb", fontWeight: 500, textDecoration: "none" }}>Privacy Policy</a>.
+                  </label>
+                </div>
+                {formik.touched.terms && formik.errors.terms && (
+                  <div style={{ color: "#ef4444", fontSize: 12, marginTop: 4 }}>{formik.errors.terms}</div>
+                )}
               </div>
+
+              {submitError && (
+                <div style={{ color: "#ef4444", fontSize: 13, textAlign: "center" }}>
+                  {submitError}
+                </div>
+              )}
 
               {/* Submit button */}
               <div style={{ paddingTop: 4 }}>

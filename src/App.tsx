@@ -1,5 +1,5 @@
 import { createHashRouter, RouterProvider } from "react-router-dom"
-import { ChooseRole, CreateAccount, Job, Login } from "./router/router"
+import { ChooseRole, CreateAccount, Job, Login, LayoutOrg, OrgDashboard } from "./router/router"
 import Layout from "./Layout/Layout"
 import ErrorPage from "./components/ErrorPage/ErrorPage"
 import { Suspense } from "react"
@@ -29,6 +29,25 @@ export default function App() {
           element : (
             <Suspense fallback={<Loading />}>
               <Job />
+            </Suspense>
+          )
+        },
+      ]
+    },
+    {
+      path : "organization-page",
+      element : (
+        <Suspense fallback={<Loading />}>
+          <LayoutOrg />
+        </Suspense>
+      ),
+      errorElement: <ErrorPage />,
+      children : [
+        {
+          index: true,
+          element : (
+            <Suspense fallback={<Loading />}>
+              <OrgDashboard />
             </Suspense>
           )
         },

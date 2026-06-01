@@ -1,9 +1,9 @@
 import React, { memo } from 'react'
 
-export default memo(function Job() {
+const Job = memo(() => {
   return (
-    <div>
-      job
-    </div>
+    <div>Job</div>
   )
 })
+
+export default Job
