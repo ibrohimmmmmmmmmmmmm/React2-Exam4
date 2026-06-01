@@ -5,4 +5,14 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    port: 3000,
+    proxy: {
+      "/api": {
+        target: "https://backendaijob-1.onrender.com",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
 })

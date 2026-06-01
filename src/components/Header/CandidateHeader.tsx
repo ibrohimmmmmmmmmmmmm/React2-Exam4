@@ -58,7 +58,7 @@ const CandidateHeader: React.FC<CandidateHeaderProps> = ({ activeTab = "Jobs" })
               placeholder="Search jobs, skills, or companies..."
               value={searchVal}
               onChange={(e) => setSearchVal(e.target.value)}
-              className="h-10 w-[300px] lg:w-[380px] rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-4 text-sm text-slate-800 outline-hidden transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+              className="h-10 w-[300px] lg:w-[380px] pl-auto rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-4 text-sm text-slate-800 outline-hidden transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
             />
           </div>
         </div>

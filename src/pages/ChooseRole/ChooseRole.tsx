@@ -89,54 +89,62 @@ export default function ChooseRole  () {
         .required("Password is required"),
     }),
     onSubmit: async (values) => {
-      setSubmitError("");
-      setLoading(true);
-      const roleLower = modalRole.toLowerCase() as "candidate" | "organization";
-      try {
-        const response = await registerService({
-          fullName: values.fullName,
-          email: values.email,
-          password: values.password,
-          role: roleLower,
-        });
-        
-        const token = response.data?.token || "mock-token-" + Date.now();
-        localStorage.setItem("token", token);
-        localStorage.setItem("role", roleLower);
-        
-        setLoading(false);
-        closeModal();
-        if (roleLower === "organization") {
-          navigate("/organization-page");
-        } else {
-          navigate("/candidate-page");
-        }
-      } catch (err: any) {
-        console.error("Registration error:", err);
-        // Fallback to local storage mock register so it works even if API is offline
-        const mockToken = "mock-token-" + Math.random().toString(36).substr(2, 9);
-        localStorage.setItem("token", mockToken);
-        localStorage.setItem("role", roleLower);
-        
-        // Also save mock user credentials for mock login
-        const existingUsers = JSON.parse(localStorage.getItem("mock_users") || "[]");
-        existingUsers.push({
-          fullName: values.fullName,
-          email: values.email,
-          password: values.password,
-          role: roleLower,
-        });
-        localStorage.setItem("mock_users", JSON.stringify(existingUsers));
-        
-        setLoading(false);
-        closeModal();
-        if (roleLower === "organization") {
-          navigate("/organization-page");
-        } else {
-          navigate("/candidate-page");
-        }
-      }
-    },
+  setSubmitError("");
+  setLoading(true);
+  const role = modalRole as "Candidate" | "Organization";
+  try {
+    const response = await registerService({
+      fullName: values.fullName,
+      email: values.email,
+      password: values.password,
+      role: role,
+    });
+
+    const responseData = response.data?.data ?? response.data ?? {};
+    const token = responseData.token || responseData.accessToken || responseData.access_token;
+
+    if (!token) {
+      setLoading(false);
+      closeModal();
+      navigate("/login");
+      return;
+    }
+
+    const cleanToken = token.toString().trim().replace(/^Bearer\s+/i, "");
+    localStorage.setItem("token", cleanToken);
+    localStorage.setItem("role", role);
+
+    setLoading(false);
+    closeModal();
+    if (role === "Organization") {
+      navigate("/organization-page");
+    } else {
+      navigate("/candidate-page");
+    }
+  } catch (err: any) {
+    console.error("Registration error:", err);
+    const mockToken = "mock-token-" + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem("token", mockToken);
+    localStorage.setItem("role", role);
+
+    const existingUsers = JSON.parse(localStorage.getItem("mock_users") || "[]");
+    existingUsers.push({
+      fullName: values.fullName,
+      email: values.email,
+      password: values.password,
+      role: role,
+    });
+    localStorage.setItem("mock_users", JSON.stringify(existingUsers));
+
+    setLoading(false);
+    closeModal();
+    if (role === "Organization") {
+      navigate("/organization-page");
+    } else {
+      navigate("/candidate-page");
+    }
+  }
+},
   });
 
   function openModal(role: string) {

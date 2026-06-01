@@ -76,10 +76,15 @@ export default function CreateAccount() {
           role: values.role,
         });
 
-        const token = response.data?.token || "mock-token-" + Date.now();
-        localStorage.setItem("token", token);
-        localStorage.setItem("role", values.role);
+        const responseData = response.data?.data ?? response.data ?? {};
+        const token = responseData.token || responseData.accessToken || responseData.access_token;
 
+        if (token) {
+          const cleanToken = token.toString().trim().replace(/^Bearer\s+/i, "");
+          localStorage.setItem("token", cleanToken);
+        }
+
+        localStorage.setItem("role", values.role);
         setLoading(false);
         if (values.role === "organization") {
           navigate("/organization-page");

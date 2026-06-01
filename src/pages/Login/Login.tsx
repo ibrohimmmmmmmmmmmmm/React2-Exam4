@@ -36,61 +36,32 @@ export default function Login() {
           password: values.password,
         });
 
-        const { token, role } = response.data;
-        localStorage.setItem("token", token || "mock-token-" + Date.now());
-        localStorage.setItem("role", role || "candidate");
+        const responseData = response.data?.data ?? response.data ?? {};
+        const token = responseData.token || responseData.accessToken || responseData.access_token;
+        const role = responseData.role || responseData.user?.role || "candidate";
+
+        if (!token) {
+          throw new Error("Login succeeded but token was not returned by the server.");
+        }
+
+        const cleanToken = token.toString().trim().replace(/^Bearer\s+/i, "");
+        localStorage.setItem("token", cleanToken);
+        localStorage.setItem("role", role);
         
         setSuccess(true);
         setLoading(false);
         
         setTimeout(() => {
-          if (role === "organization") {
+          if (role?.toString().toLowerCase() === "organization") {
             navigate("/organization-page");
           } else {
             navigate("/candidate-page");
           }
         }, 1000);
       } catch (err: any) {
-        console.error("Login API failed, trying mock fallback:", err);
-        
-        // Mock fallback login implementation
-        const emailLower = values.email.toLowerCase();
-        let matchedRole: "candidate" | "organization" | null = null;
-
-        // 1. Check predefined credentials
-        if (emailLower === "candidate@ai-job.com" && values.password === "password123") {
-          matchedRole = "candidate";
-        } else if (emailLower === "org@ai-job.com" && values.password === "password123") {
-          matchedRole = "organization";
-        } else {
-          // 2. Check registered users in localStorage
-          const existingUsers = JSON.parse(localStorage.getItem("mock_users") || "[]");
-          const foundUser = existingUsers.find(
-            (u: any) => u.email.toLowerCase() === emailLower && u.password === values.password
-          );
-          if (foundUser) {
-            matchedRole = foundUser.role;
-          }
-        }
-
-        if (matchedRole) {
-          localStorage.setItem("token", "mock-token-" + Math.random().toString(36).substr(2, 9));
-          localStorage.setItem("role", matchedRole);
-          
-          setSuccess(true);
-          setLoading(false);
-          
-          setTimeout(() => {
-            if (matchedRole === "organization") {
-              navigate("/organization-page");
-            } else {
-              navigate("/candidate-page");
-            }
-          }, 1000);
-        } else {
-          setLoading(false);
-          setSubmitError("Invalid email or password. Try candidate@ai-job.com or org@ai-job.com with password123.");
-        }
+        setLoading(false);
+        const message = err?.response?.data?.message || err?.message || "Login failed. Check credentials and try again.";
+        setSubmitError(message);
       }
     },
   });
@@ -265,7 +236,6 @@ export default function Login() {
                     transition: "border-color 0.15s",
                   }}
                   onFocus={(e) => { if (!formik.errors.email) { e.target.style.borderColor = "#2563eb"; e.target.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.1)"; } }}
-                  onBlur={(e) => { e.target.style.borderColor = formik.touched.email && formik.errors.email ? "#ef4444" : "#e2e8f0"; e.target.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; }}
                 />
               </div>
               {formik.touched.email && formik.errors.email && (
@@ -303,7 +273,6 @@ export default function Login() {
                     transition: "border-color 0.15s",
                   }}
                   onFocus={(e) => { if (!formik.errors.password) { e.target.style.borderColor = "#2563eb"; e.target.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.1)"; } }}
-                  onBlur={(e) => { e.target.style.borderColor = formik.touched.password && formik.errors.password ? "#ef4444" : "#e2e8f0"; e.target.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; }}
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} style={{
                   position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
