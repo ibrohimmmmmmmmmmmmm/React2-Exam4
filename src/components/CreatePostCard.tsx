@@ -18,6 +18,7 @@ export default function CreatePostCard({ user }: CreatePostCardProps) {
   const [successMessage, setSuccessMessage] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const canSubmit = content.trim().length > 0 && createStatus !== "loading";
@@ -83,10 +84,24 @@ export default function CreatePostCard({ user }: CreatePostCardProps) {
       if (imageFile) {
         try {
           const fileToUpload = imageFile.size > 1600000 ? await resizeImageFile(imageFile) : imageFile;
-          const uploadRes = await uploadPhoto(fileToUpload);
-          const uploadedUrl = uploadRes?.data?.url ?? uploadRes?.data ?? uploadRes?.data?.data ?? null;
-          if (typeof uploadedUrl === "string") {
+          setUploadProgress(0);
+          const uploadRes = await uploadPhoto(fileToUpload, (p) => setUploadProgress(p));
+          const data = uploadRes?.data ?? uploadRes;
+          let uploadedUrl: string | null = null;
+          if (typeof data === "string") uploadedUrl = data;
+          else if (data?.url) uploadedUrl = data.url;
+          else if (data?.data?.url) uploadedUrl = data.data.url;
+          else if (data?.data) {
+            if (typeof data.data === "string") uploadedUrl = data.data;
+            else uploadedUrl = data.data.url ?? data.data.path ?? data.data.file ?? null;
+          } else if (data?.file?.url) uploadedUrl = data.file.url;
+          else if (data?.path) uploadedUrl = data.path;
+
+          if (uploadedUrl) {
             payload.imageUrl = uploadedUrl;
+          } else if (imagePreview) {
+            // fallback to sending the data URL if backend returned unexpected shape
+            payload.image = imagePreview;
           }
         } catch (err) {
           // fallback: include small preview if upload failed (may still be large)
@@ -97,6 +112,7 @@ export default function CreatePostCard({ user }: CreatePostCardProps) {
       setContent("");
       setImageFile(null);
       setImagePreview(null);
+      setUploadProgress(null);
       dispatch(loadFeedPosts());
       toast.push("Post published", "success");
     } catch {
@@ -161,6 +177,14 @@ export default function CreatePostCard({ user }: CreatePostCardProps) {
             >
               <X className="h-4 w-4" />
             </button>
+            {uploadProgress !== null && (
+              <div className="absolute inset-x-0 bottom-0 p-3">
+                <div className="w-full rounded-full bg-white/30">
+                  <div className="h-2 rounded-full bg-blue-600" style={{ width: `${uploadProgress}%` }} />
+                </div>
+                <p className="mt-2 text-xs text-white">Uploading image: {uploadProgress}%</p>
+              </div>
+            )}
           </div>
         )}
 

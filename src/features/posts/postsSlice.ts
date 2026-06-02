@@ -32,6 +32,9 @@ const initialState: PostsState = {
   createError: null,
 };
 
+// stable empty array to avoid selector returning a new reference repeatedly
+export const EMPTY_COMMENTS: CommentDto[] = [];
+
 export const loadFeedPosts = createAsyncThunk<PostDto[], void, { rejectValue: string }>(
   "posts/loadFeedPosts",
   async (_, { rejectWithValue }) => {
@@ -102,7 +105,21 @@ export const likeFeedPost = createAsyncThunk<string, string, { rejectValue: stri
 const postsSlice = createSlice({
   name: "posts",
   initialState,
-  reducers: {},
+  reducers: {
+    addLocalComment: (state, action) => {
+      const { postId, comment } = action.payload as { postId: string; comment: any };
+      if (!state.commentsByPost[postId]) state.commentsByPost[postId] = [];
+      state.commentsByPost[postId].push(comment);
+      const post = state.posts.find((item) => String(item.id ?? item._id) === postId);
+      if (post) {
+        if (typeof post.commentsCount === "number") {
+          post.commentsCount += 1;
+        } else {
+          post.commentsCount = 1;
+        }
+      }
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(loadFeedPosts.pending, (state) => {
@@ -194,5 +211,7 @@ const postsSlice = createSlice({
       });
   },
 });
+
+export const { addLocalComment } = postsSlice.actions;
 
 export default postsSlice.reducer;

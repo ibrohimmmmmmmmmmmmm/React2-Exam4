@@ -25,8 +25,11 @@ export default function Job() {
   }, [dispatch]);
 
   useEffect(() => {
-    dispatch(loadFeedPosts());
-  }, [dispatch]);
+    // ensure we fetch feed when the page mounts or when the user/profile becomes available
+    if (!postsState.posts.length) {
+      dispatch(loadFeedPosts());
+    }
+  }, [dispatch, profileState.user?.id]);
 
   useEffect(() => {
     if (userId) {

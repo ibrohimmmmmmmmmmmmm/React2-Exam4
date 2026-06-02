@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useAppSelector } from "../../hooks";
 import type { RootState } from "../../store";
 import { useNavigate } from "react-router-dom";
+import { getImageUrl } from "../../utils/image";
 import {
   Search,
   Briefcase,
@@ -125,7 +126,10 @@ const CandidateHeader: React.FC<CandidateHeaderProps> = ({ activeTab = "Jobs" })
             className="flex items-center gap-2 rounded-full border border-slate-100 bg-white px-3 py-1.5 hover:shadow-lg transition-all cursor-pointer"
           >
             <img
-              src={profileUser?.avatar || profileUser?.avatarUrl || profileUser?.photo || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150&h=150"}
+              src={
+                getImageUrl(profileUser?.avatar || profileUser?.avatarUrl || profileUser?.photo) ||
+                "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150&h=150"
+              }
               alt={profileUser?.fullName || profileUser?.email || "Candidate"}
               className="h-9 w-9 rounded-full object-cover ring-2 ring-blue-50"
             />

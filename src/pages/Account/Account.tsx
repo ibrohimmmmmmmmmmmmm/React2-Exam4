@@ -4,6 +4,7 @@ import { useAppDispatch, useAppSelector } from "../../hooks";
 import type { RootState } from "../../store";
 import FeedPostCard from "../../components/FeedPostCard";
 import { loadFeedPosts } from "../../features/posts/postsSlice";
+import { getImageUrl } from "../../utils/image";
 
 export default function Account() {
   const profileState = useAppSelector((state: RootState) => state.profile);
@@ -35,7 +36,27 @@ export default function Account() {
     [featuredAuthor?.firstName, featuredAuthor?.lastName].filter(Boolean).join(" ") ||
     featuredAuthor?.email ||
     "Candidate";
-  const featuredImage = (featuredPost as any)?.imageUrl ?? (featuredPost as any)?.image ?? null;
+  const resolveImage = (p: any): string | null => {
+    if (!p) return null;
+    const candidates = [p.imageUrl, p.image, p.photo, p.photoUrl, p.media, p.mediaUrl, p.files, p.photos];
+    for (const c of candidates) {
+      if (!c) continue;
+      if (typeof c === "string" && c.trim()) return c;
+      if (typeof c === "object") {
+        if (Array.isArray(c) && c.length) {
+          const first = c[0];
+          if (typeof first === "string") return first;
+          if (first?.url) return first.url;
+          if (first?.path) return first.path;
+        }
+        if (c.url) return c.url;
+        if (c.path) return c.path;
+      }
+    }
+    return null;
+  };
+  const featuredImage = resolveImage(featuredPost as any);
+  const featuredImageSrc = featuredImage ? (getImageUrl(featuredImage) ?? featuredImage) : null;
   const featuredContent = featuredPost?.content ?? featuredPost?.text ?? featuredPost?.description ?? "";
 
   useEffect(() => {
@@ -204,9 +225,9 @@ export default function Account() {
                     {featuredPost && (
                       <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-xl">
                         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-                          {featuredImage ? (
+                          {featuredImageSrc ? (
                             <div className="relative bg-slate-100">
-                              <img src={String(featuredImage)} alt="Featured post" className="h-full w-full object-cover" />
+                              <img src={String(featuredImageSrc)} alt="Featured post" className="h-full w-full object-cover" />
                               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-transparent p-5 text-white">
                                 <p className="text-sm uppercase tracking-[0.28em] text-slate-300">Featured</p>
                                 <h4 className="mt-2 text-xl font-semibold">{featuredAuthorName}</h4>

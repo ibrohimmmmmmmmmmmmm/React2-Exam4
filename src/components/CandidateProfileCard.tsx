@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getImageUrl } from "../utils/image";
 import { UserCircle2, MapPin, Mail } from "lucide-react";
 import type { ProfileDto, UserDto } from "../types/api";
 
@@ -34,12 +35,13 @@ export default function CandidateProfileCard({
 
   const location = profile?.location || [profile?.city, profile?.country].filter(Boolean).join(", ") || "Remote";
 
-  const avatarUrl =
+  const avatarUrlRaw =
     user?.avatar ||
     user?.avatarUrl ||
     user?.photo ||
     user?.profilePicture ||
     "";
+  const avatarUrl = getImageUrl(avatarUrlRaw) || "";
 
   return (
     <section className="rounded-[32px] border border-slate-200 bg-white shadow-xl shadow-slate-200/40">

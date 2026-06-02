@@ -2,9 +2,10 @@ import { Heart, MessageSquare, Share2, ThumbsUp, UserCircle2, Bookmark } from "l
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../hooks";
 import type { RootState } from "../store";
-import { addFeedComment, likeFeedPost, loadPostComments } from "../features/posts/postsSlice";
+import { addFeedComment, likeFeedPost, loadPostComments, addLocalComment, EMPTY_COMMENTS } from "../features/posts/postsSlice";
 import type { PostDto } from "../types/api";
-import { savePost, unsavePost } from "../services/saveService";
+import { savePost, unsavePost, checkSavedStatus } from "../services/saveService";
+import { getImageUrl } from "../utils/image";
 import { useToast } from "./Toast/ToastProvider";
 
 interface FeedPostCardProps {
@@ -15,9 +16,10 @@ export default function FeedPostCard({ post }: FeedPostCardProps) {
   const dispatch = useAppDispatch();
   const postId = String(post.id ?? post._id ?? "");
   const likeStatus = useAppSelector((state: RootState) => state.posts.likeStatus[postId]);
-  const comments = useAppSelector((state: RootState) => state.posts.commentsByPost[postId] ?? []);
+  const comments = useAppSelector((state: RootState) => state.posts.commentsByPost[postId] ?? EMPTY_COMMENTS);
   const commentsStatus = useAppSelector((state: RootState) => state.posts.commentsStatus[postId] ?? "idle");
   const commentCreateStatus = useAppSelector((state: RootState) => state.posts.createCommentStatus[postId] ?? "idle");
+  const profileUser = useAppSelector((state: RootState) => state.profile.user);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [commentError, setCommentError] = useState<string | null>(null);
@@ -31,7 +33,41 @@ export default function FeedPostCard({ post }: FeedPostCardProps) {
 
   const content = post.content ?? post.text ?? post.description ?? "";
   const createdAt = post.createdAt ?? (post as any).created_at ?? "";
-  const image = (post as any).imageUrl ?? (post as any).image ?? null;
+  const resolveImage = (p: any): string | null => {
+    if (!p) return null;
+    const candidates = [
+      p.imageUrl,
+      p.image,
+      p.photo,
+      p.photoUrl,
+      p.image_url,
+      p.media,
+      p.mediaUrl,
+      p.attachments,
+      p.files,
+      p.photos,
+    ];
+
+    for (const c of candidates) {
+      if (!c) continue;
+      if (typeof c === "string" && c.trim()) return c;
+      if (typeof c === "object") {
+        if (Array.isArray(c) && c.length) {
+          const first = c[0];
+          if (typeof first === "string") return first;
+          if (first?.url) return first.url;
+          if (first?.path) return first.path;
+        }
+        if (c.url) return c.url;
+        if (c.path) return c.path;
+      }
+    }
+
+    return null;
+  };
+
+  const image = resolveImage(post as any);
+  const imageSrc = image ? getImageUrl(image) ?? image : null;
 
   const handleLike = () => {
     if (postId) {
@@ -58,8 +94,23 @@ export default function FeedPostCard({ post }: FeedPostCardProps) {
       setCommentError(null);
       await dispatch(addFeedComment({ postId, content: commentText.trim() })).unwrap();
       setCommentText("");
+      toast.push("Comment posted", "success");
     } catch (error: any) {
-      setCommentError(error || "Unable to post comment.");
+      const msg = error?.message || error || "Unable to post comment.";
+      setCommentError(msg);
+      toast.push(msg, "error");
+      // optimistic local fallback
+      try {
+        const fallback = {
+          id: `local-${Date.now()}`,
+          content: commentText.trim(),
+          createdAt: new Date().toISOString(),
+          author: { fullName: profileUser?.fullName || profileUser?.email || "You" },
+        };
+        dispatch(addLocalComment({ postId, comment: fallback }));
+        setCommentText("");
+        toast.push("Comment added locally", "info");
+      } catch {}
     }
   };
 
@@ -105,11 +156,30 @@ export default function FeedPostCard({ post }: FeedPostCardProps) {
           });
           window.setTimeout(() => setSavingAnim(false), 450);
         } else {
-          await unsavePost(postId);
-          setSaved(false);
-          setSavingAnim(true);
-          toast.push("Removed from saved", "info");
-          window.setTimeout(() => setSavingAnim(false), 450);
+            await unsavePost(postId);
+            setSaved(false);
+            setSavingAnim(true);
+            toast.push("Removed from saved", "info");
+            // start polling backend to confirm removal (attempts every 3s up to 5 tries)
+            (async function pollRemoval() {
+              const attempts = 5;
+              const interval = 3000;
+              for (let i = 0; i < attempts; i++) {
+                try {
+                  const status = await checkSavedStatus(postId);
+                  if (status && status.saved === false) {
+                    toast.push("Unsaved synced with server", "success");
+                    break;
+                  }
+                } catch (e) {
+                  // no endpoint available; rely on local state
+                  break;
+                }
+                // wait
+                await new Promise((r) => setTimeout(r, interval));
+              }
+            })();
+            window.setTimeout(() => setSavingAnim(false), 450);
         }
       } catch (e) {
         // fallback local toggle
@@ -157,9 +227,9 @@ export default function FeedPostCard({ post }: FeedPostCardProps) {
       )}
       <header className="flex items-center gap-4 rounded-t-[32px] bg-slate-50 p-4">
         <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-100 text-slate-500 overflow-hidden">
-          {author.avatar || author.avatarUrl || (author.photo as string) ? (
+          {(author.avatar || author.avatarUrl || (author.photo as string)) ? (
             <img
-              src={author.avatar || author.avatarUrl || (author.photo as string)}
+              src={getImageUrl(author.avatar || author.avatarUrl || (author.photo as string)) ?? (author.avatar || author.avatarUrl || (author.photo as string))}
               alt={authorName}
               className="h-full w-full object-cover"
             />
@@ -184,10 +254,10 @@ export default function FeedPostCard({ post }: FeedPostCardProps) {
         </span>
       </header>
 
-      {image && (
+          {imageSrc && (
         <div className="relative overflow-hidden rounded-b-[32px] bg-slate-100">
           <img
-            src={String(image)}
+            src={String(imageSrc)}
             alt="post image"
             loading="lazy"
             className="w-full max-h-[520px] object-cover"
