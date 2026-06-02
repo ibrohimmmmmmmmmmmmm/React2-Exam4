@@ -41,6 +41,18 @@ export interface PostDto {
   repostCount?: number;
 }
 
+export interface CommentDto {
+  id?: string;
+  _id?: string;
+  content?: string;
+  text?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  author?: UserDto;
+  user?: UserDto;
+  postedBy?: UserDto;
+}
+
 export interface JobDto {
   id?: string;
   _id?: string;

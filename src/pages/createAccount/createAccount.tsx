@@ -230,7 +230,9 @@ export default function CreateAccount() {
                   ))}
                 </div>
                 {formik.touched.role && formik.errors.role && (
-                  <div style={{ color: "#ef4444", fontSize: 12, marginTop: 4 }}>{formik.errors.role}</div>
+                  <div style={{ color: "#ef4444", fontSize: 12, marginTop: 4 }}>
+                    {typeof formik.errors.role === "string" ? formik.errors.role : "Please select a role."}
+                  </div>
                 )}
               </div>
 

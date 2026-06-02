@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import CandidateProfileCard from "../../components/CandidateProfileCard";
 import CreatePostCard from "../../components/CreatePostCard";
 import FeedPostCard from "../../components/FeedPostCard";
+import JobPostCard from "../../components/JobPostCard";
 import RecommendedJobs from "../../components/RecommendedJobs";
 import { useAppDispatch, useAppSelector } from "../../hooks";
 import type { RootState } from "../../store";
@@ -77,6 +78,13 @@ export default function Job() {
                 {postsState.posts.map((post) => (
                   <FeedPostCard key={String(post.id ?? post._id ?? post.content ?? Math.random())} post={post} />
                 ))}
+                {jobsState.jobs.length > 0 && (
+                  <div className="space-y-6 pt-4">
+                    {jobsState.jobs.slice(0, 3).map((job) => (
+                      <JobPostCard key={String(job.id ?? job._id ?? Math.random())} job={job} />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

@@ -1,4 +1,4 @@
-import React, { memo } from "react";
+import { memo } from "react";
 import OrganizationHeader from "../components/Header/OrganizationHeader";
 import { Outlet } from "react-router-dom";
 import Footer from "../components/Footer/Footer";

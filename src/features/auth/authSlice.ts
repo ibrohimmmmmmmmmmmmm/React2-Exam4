@@ -27,7 +27,7 @@ const initialState: AuthState = {
 
 // Login async thunk
 export const loginUser = createAsyncThunk<
-  { token: string; user: any; role: string },
+  { token: string; user: any; role: "candidate" | "organization" | null },
   LoginPayload,
   { rejectValue: string }
 >(

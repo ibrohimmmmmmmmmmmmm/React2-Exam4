@@ -1,12 +1,21 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import { createPost, getFeedPosts, likePost } from "../../services/postService";
-import type { PostDto } from "../../types/api";
+import {
+  createPost,
+  getFeedPosts,
+  getPostComments,
+  createPostComment as createPostCommentService,
+  likePost,
+} from "../../services/postService";
+import type { CommentDto, PostDto } from "../../types/api";
 
 export interface PostsState {
   posts: PostDto[];
   status: "idle" | "loading" | "succeeded" | "failed";
   createStatus: "idle" | "loading" | "succeeded" | "failed";
   likeStatus: Record<string, "idle" | "loading" | "succeeded" | "failed">;
+  commentsStatus: Record<string, "idle" | "loading" | "succeeded" | "failed">;
+  createCommentStatus: Record<string, "idle" | "loading" | "succeeded" | "failed">;
+  commentsByPost: Record<string, CommentDto[]>;
   error: string | null;
   createError: string | null;
 }
@@ -16,6 +25,9 @@ const initialState: PostsState = {
   status: "idle",
   createStatus: "idle",
   likeStatus: {},
+  commentsStatus: {},
+  createCommentStatus: {},
+  commentsByPost: {},
   error: null,
   createError: null,
 };
@@ -40,6 +52,37 @@ export const createFeedPost = createAsyncThunk<PostDto, { content: string }, { r
       return response.data?.data ?? response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || error.message || "Unable to publish post.");
+    }
+  },
+);
+
+export const loadPostComments = createAsyncThunk<CommentDto[], string, { rejectValue: string }>(
+  "posts/loadPostComments",
+  async (postId, { rejectWithValue }) => {
+    try {
+      const response = await getPostComments(postId);
+      return response.data?.data ?? response.data ?? [];
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || error.message || "Unable to load comments.");
+    }
+  },
+);
+
+export const addFeedComment = createAsyncThunk<{
+  postId: string;
+  comment: CommentDto;
+},
+  { postId: string; content: string },
+  { rejectValue: string }
+>(
+  "posts/addFeedComment",
+  async ({ postId, content }, { rejectWithValue }) => {
+    try {
+      const response = await createPostCommentService(postId, { content });
+      const comment = response.data?.data ?? response.data;
+      return { postId, comment };
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || error.message || "Unable to add comment.");
     }
   },
 );
@@ -91,14 +134,63 @@ const postsSlice = createSlice({
       .addCase(likeFeedPost.pending, (state, action) => {
         state.likeStatus[action.meta.arg] = "loading";
       })
-      .addCase(likeFeedPost.fulfilled, (state, action) => {
-        state.likeStatus[action.payload] = "succeeded";
+          .addCase(likeFeedPost.fulfilled, (state, action) => {
+        const postId = action.payload;
+        state.likeStatus[postId] = "succeeded";
+        const post = state.posts.find((item) => String(item.id ?? item._id) === postId);
+        if (post) {
+          if (typeof post.likeCount === "number") {
+            post.likeCount += 1;
+          } else if (typeof post.likes === "number") {
+            post.likes += 1;
+          } else {
+            post.likeCount = 1;
+          }
+        }
       })
       .addCase(likeFeedPost.rejected, (state, action) => {
         if (action.meta.arg) {
           state.likeStatus[action.meta.arg] = "failed";
         }
         state.error = action.payload || "Unable to like the post.";
+      })
+      .addCase(loadPostComments.pending, (state, action) => {
+        state.commentsStatus[action.meta.arg] = "loading";
+        state.error = null;
+      })
+      .addCase(loadPostComments.fulfilled, (state, action) => {
+        state.commentsStatus[action.meta.arg] = "succeeded";
+        const postId = action.meta.arg;
+        state.commentsByPost[postId] = Array.isArray(action.payload) ? action.payload : [];
+      })
+      .addCase(loadPostComments.rejected, (state, action) => {
+        state.commentsStatus[action.meta.arg] = "failed";
+        state.error = action.payload || "Failed to load comments.";
+      })
+      .addCase(addFeedComment.pending, (state, action) => {
+        state.createCommentStatus[action.meta.arg.postId] = "loading";
+        state.error = null;
+      })
+      .addCase(addFeedComment.fulfilled, (state, action) => {
+        const { postId, comment } = action.payload;
+        state.createCommentStatus[postId] = "succeeded";
+        if (!state.commentsByPost[postId]) {
+          state.commentsByPost[postId] = [];
+        }
+        state.commentsByPost[postId].push(comment);
+        const post = state.posts.find((item) => String(item.id ?? item._id) === postId);
+        if (post) {
+          if (typeof post.commentsCount === "number") {
+            post.commentsCount += 1;
+          } else {
+            post.commentsCount = 1;
+          }
+        }
+      })
+      .addCase(addFeedComment.rejected, (state, action) => {
+        const postId = action.meta.arg.postId;
+        state.createCommentStatus[postId] = "failed";
+        state.error = action.payload || "Unable to add comment.";
       });
   },
 });

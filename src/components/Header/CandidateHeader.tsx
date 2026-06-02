@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { useAppSelector } from "../../hooks";
+import type { RootState } from "../../store";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -20,6 +22,29 @@ const CandidateHeader: React.FC<CandidateHeaderProps> = ({ activeTab = "Jobs" })
   const navigate = useNavigate();
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [searchVal, setSearchVal] = useState("");
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  const profileState = useAppSelector((state: RootState) => state.profile);
+  const profileUser = profileState.user;
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (!dropdownRef.current) return;
+      if (!(e.target instanceof Node)) return;
+      if (!dropdownRef.current.contains(e.target)) {
+        setProfileDropdownOpen(false);
+      }
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setProfileDropdownOpen(false);
+    }
+    document.addEventListener("click", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("click", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -94,33 +119,49 @@ const CandidateHeader: React.FC<CandidateHeaderProps> = ({ activeTab = "Jobs" })
         </nav>
 
         {/* RIGHT SECTION - PROFILE */}
-        <div className="relative">
+        <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-            className="flex items-center gap-2 rounded-full border border-slate-100 bg-slate-50/50 p-1.5 pr-3 hover:bg-slate-100/80 transition-all cursor-pointer"
+            className="flex items-center gap-2 rounded-full border border-slate-100 bg-white px-3 py-1.5 hover:shadow-lg transition-all cursor-pointer"
           >
             <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150&h=150"
-              alt="Candidate Profile"
-              className="h-8 w-8 rounded-full border border-white object-cover"
+              src={profileUser?.avatar || profileUser?.avatarUrl || profileUser?.photo || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150&h=150"}
+              alt={profileUser?.fullName || profileUser?.email || "Candidate"}
+              className="h-9 w-9 rounded-full object-cover ring-2 ring-blue-50"
             />
-            <span className="text-sm font-semibold text-slate-700 hidden sm:inline">Profile</span>
+            <span className="text-sm font-semibold text-slate-700 hidden sm:inline">{profileUser?.fullName ? profileUser.fullName : "Profile"}</span>
             <ChevronDown className="h-4 w-4 text-slate-500" />
           </button>
 
           {profileDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-100 bg-white p-1 shadow-lg z-50">
-              <div className="px-3 py-2 border-b border-slate-50">
-                <p className="text-xs text-slate-400 font-medium">Logged in as</p>
-                <p className="text-sm font-semibold text-slate-700 truncate">Candidate User</p>
+            <div className={`absolute right-0 mt-3 w-64 rounded-xl border border-slate-100 bg-white p-2 shadow-2xl z-50 transform transition-all origin-top-right ${profileDropdownOpen ? "opacity-100 scale-100" : "opacity-0 scale-95"}`}>
+              <div className="px-4 py-3 border-b border-slate-100">
+                <p className="text-xs text-slate-400">Logged in as</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800 truncate">{profileUser?.fullName || profileUser?.email || "Candidate"}</p>
               </div>
-              <button
-                onClick={handleLogout}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-50/70 transition-all"
-              >
-                <LogOut className="h-4 w-4" />
-                Sign Out
-              </button>
+              <div className="py-2">
+                <button
+                  onClick={() => { navigate('/candidate-page/account'); setProfileDropdownOpen(false); }}
+                  className="flex w-full items-center gap-3 rounded-lg px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-all"
+                >
+                  <FileText className="h-4 w-4 text-slate-500" />
+                  My account
+                </button>
+                <button
+                  onClick={() => { navigate('/candidate-page/account?tab=saved'); setProfileDropdownOpen(false); }}
+                  className="flex w-full items-center gap-3 rounded-lg px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-all"
+                >
+                  <Briefcase className="h-4 w-4 text-slate-500" />
+                  Saved
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="mt-2 flex w-full items-center gap-3 rounded-lg px-4 py-2 text-left text-sm text-rose-600 hover:bg-rose-50 transition-all"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </button>
+              </div>
             </div>
           )}
         </div>
