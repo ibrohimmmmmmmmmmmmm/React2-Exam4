@@ -8,3 +8,6 @@ export const JobDetail = lazy(() => import("../pages/Job/JobDetail"));
 export const Account = lazy(() => import("../pages/Account/Account"));
 export const LayoutOrg = lazy(() => import("../Layout/LayoutOrg"));
 export const OrgDashboard = lazy(() => import("../pages/OrgDashboard/OrgDashboard"));
+export const NetWorkPage = lazy(() => import("../pages/Network/NetworkPage"));
+export const MessagesPage = lazy(() => import("../pages/Messages/MessagesPage"));
+export const AITools = lazy(() => import("../pages/AITools/AITools"));

@@ -8,3 +8,7 @@ export const login = async (data : any) => {
 export const register = async (data : any) => {
   return await axiosRequest.post("/Auth/register", data);
 };
+
+export const createOrganizationProfile = async (data: any) => {
+  return await axiosRequest.post("/Organization", data);
+};

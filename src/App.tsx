@@ -1,5 +1,5 @@
 import { createHashRouter, RouterProvider } from "react-router-dom";
-import { ChooseRole, CreateAccount, Job, JobDetail, Login, LayoutOrg, OrgDashboard } from "./router/router";
+import { ChooseRole, CreateAccount, Job, JobDetail, Login, LayoutOrg, OrgDashboard, NetWorkPage, MessagesPage, AITools } from "./router/router";
 import { Account } from "./router/router";
 import Layout from "./Layout/Layout";
 import ErrorPage from "./components/ErrorPage/ErrorPage";
@@ -42,10 +42,34 @@ export default function App() {
           ),
         },
         {
+          path: "network",
+          element: (
+            <Suspense fallback={<Loading />}>
+              <NetWorkPage />
+            </Suspense>
+          ),
+        },
+        {
           path: "job/:jobId",
           element: (
             <Suspense fallback={<Loading />}>
               <JobDetail />
+            </Suspense>
+          ),
+        },
+        {
+          path: "messages",
+          element: (
+            <Suspense fallback={<Loading />}>
+              <MessagesPage />
+            </Suspense>
+          ),
+        },
+        {
+          path: "ai-tools",
+          element: (
+            <Suspense fallback={<Loading />}>
+              <AITools />
             </Suspense>
           ),
         },

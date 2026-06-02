@@ -2,10 +2,14 @@ import axiosRequest from "./axiosRequest";
 
 export const getFeedPosts = async () => {
   try {
-    return await axiosRequest.get("/Post/feed");
+    return await axiosRequest.get(`/Post/feed?_t=${Date.now()}`, {
+      headers: { "Cache-Control": "no-cache", Pragma: "no-cache", Expires: "0" }
+    });
   } catch (error: any) {
     // fallback to generic posts endpoint
-    return await axiosRequest.get("/Post");
+    return await axiosRequest.get(`/Post?_t=${Date.now()}`, {
+      headers: { "Cache-Control": "no-cache", Pragma: "no-cache", Expires: "0" }
+    });
   }
 };
 export const createPost = async (data: { content: string }) => axiosRequest.post("/Post", data);

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { register as registerService } from "../../services/authService";
+import { register as registerService, createOrganizationProfile } from "../../services/authService";
 
 export default function CreateAccount() {
   const navigate = useNavigate();
@@ -85,6 +85,23 @@ export default function CreateAccount() {
         }
 
         localStorage.setItem("role", values.role);
+
+        if (values.role === "organization") {
+          try {
+            await createOrganizationProfile({
+              name: values.fullName,
+              description: "New organization account",
+              industry: "Unspecified",
+              location: "Unspecified",
+              website: "",
+              logoUrl: "",
+              bannerUrl: ""
+            });
+          } catch (orgErr) {
+            console.error("Failed to create organization profile:", orgErr);
+          }
+        }
+
         setLoading(false);
         if (values.role === "organization") {
           navigate("/organization-page");
