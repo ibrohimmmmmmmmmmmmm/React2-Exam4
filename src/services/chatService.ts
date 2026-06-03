@@ -36,7 +36,7 @@ export const chatService = {
   },
 
   createConversation: async (participantId: number) => {
-    const response = await axiosRequest.post("/Conversation", { participantId });
+    const response = await axiosRequest.post("/Conversation", { otherUserId: participantId });
     return response.data;
   },
 

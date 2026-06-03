@@ -1,35 +1,70 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useAppSelector } from "../../hooks";
 import type { RootState } from "../../store";
-import { useNavigate, useLocation } from "react-router-dom"; // Import useLocation
+import { useNavigate, useLocation } from "react-router-dom";
 import { getImageUrl } from "../../utils/image";
 import {
   Search, Briefcase, FileText, Users,
-  MessageCircle, Bell, Sparkles, ChevronDown, LogOut,
+  MessageCircle, Bell, Sparkles, ChevronDown, LogOut, X
 } from "lucide-react";
+import { notificationService, type MockNotification } from "../../services/notificationService";
+import { AnimatePresence, motion } from "framer-motion";
 
-// No interface change needed
 const navItems = [
   { label: "Jobs",          icon: Briefcase,      path: "/candidate-page" },
   { label: "Network",       icon: Users,          path: "/candidate-page/network" },
   { label: "Messages",      icon: MessageCircle,  path: "/candidate-page/messages" },
-  { label: "Notifications", icon: Bell,           path: "/candidate-page/notifications", badge: 3 },
+  { label: "Notifications", icon: Bell,           path: "/candidate-page/notifications" },
 ];
 
 const CandidateHeader: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation(); // Get current path
+  const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchVal, setSearchVal] = useState("");
   const [transitioning, setTransitioning] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   const profileUser = useAppSelector((state: RootState) => state.profile.user);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [activeToasts, setActiveToasts] = useState<MockNotification[]>([]);
 
-  // Determine active tab based on current URL
-  const activeTab = navItems.find(item => 
-    location.pathname === item.path || (location.pathname.startsWith(item.path) && item.path !== "/candidate-page")
-  )?.label || "Jobs";
+  const calculateUnread = (notifs: MockNotification[], myId: number) => {
+    return notifs.filter(n => n.receiverId === myId && (n.status === "unread" || n.status === "pending")).length;
+  };
+
+  useEffect(() => {
+    const myId = profileUser?.id || 1;
+    
+    // Initial fetch
+    const currentNotifs = notificationService.getNotifications();
+    setUnreadCount(calculateUnread(currentNotifs, myId));
+
+    const unsubscribe = notificationService.subscribe((notifications) => {
+      setUnreadCount(calculateUnread(notifications, myId));
+      
+      // Look for newly added notifications to show as Toast
+      const newNotifs = notifications.filter(
+        n => n.receiverId === myId && 
+             (n.status === "unread" || n.status === "pending") && 
+             (Date.now() - new Date(n.createdAt).getTime() < 3000)
+      );
+      
+      if (newNotifs.length > 0) {
+        const latest = newNotifs[newNotifs.length - 1];
+        setActiveToasts(prev => {
+          if (prev.find(t => t.id === latest.id)) return prev;
+          return [...prev, latest];
+        });
+
+        setTimeout(() => {
+          setActiveToasts(prev => prev.filter(t => t.id !== latest.id));
+        }, 4000);
+      }
+    });
+
+    return unsubscribe;
+  }, [profileUser?.id]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -56,11 +91,23 @@ const CandidateHeader: React.FC = () => {
     navigate("/");
   };
 
+  const handleToastClick = (notif: MockNotification) => {
+    setActiveToasts(prev => prev.filter(t => t.id !== notif.id));
+    if (notif.type === "message") {
+      navigate("/candidate-page/messages", { state: { targetUserId: notif.senderId } });
+    } else {
+      navigate("/candidate-page/notifications");
+    }
+  };
+
   const avatarSrc =
     getImageUrl(profileUser?.avatar || profileUser?.avatarUrl || profileUser?.photo) ||
     "https://i.pravatar.cc/150?img=12";
 
   const displayName = profileUser?.fullName || profileUser?.email || "Profile";
+  const activeTab = navItems.find(item => 
+    location.pathname === item.path || (location.pathname.startsWith(item.path) && item.path !== "/candidate-page")
+  )?.label || "Jobs";
 
   return (
     <>
@@ -75,7 +122,7 @@ const CandidateHeader: React.FC = () => {
         }}
       />
 
-      <header className="sticky top-0 z-50 w-full border-b border-slate-100 bg-white/90 backdrop-blur-md shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05)]">
+      <header className="sticky top-0 z-40 w-full border-b border-slate-100 bg-white/90 backdrop-blur-md shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05)]">
         <div className="mx-auto flex h-[60px] max-w-[1440px] items-center justify-between px-6">
           
           <div className="flex items-center gap-5">
@@ -97,7 +144,7 @@ const CandidateHeader: React.FC = () => {
           </div>
 
           <nav className="flex items-center gap-1">
-            {navItems.map(({ label, icon: Icon, path, badge }) => {
+            {navItems.map(({ label, icon: Icon, path }) => {
               const isActive = label === activeTab;
               return (
                 <button
@@ -111,9 +158,9 @@ const CandidateHeader: React.FC = () => {
                 >
                   <Icon className="h-4 w-4 flex-shrink-0" />
                   <span className="hidden sm:inline">{label}</span>
-                  {badge && (
-                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[9px] font-bold text-white">
-                      {badge}
+                  {label === "Notifications" && unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm border border-white">
+                      {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                   )}
                   {isActive && (
@@ -163,6 +210,43 @@ const CandidateHeader: React.FC = () => {
           </div>
         </div>
       </header>
+
+      {/* Global In-App Toasts */}
+      <div className="fixed top-20 right-4 md:right-8 z-[9999] flex flex-col gap-3 pointer-events-none">
+        <AnimatePresence>
+          {activeToasts.map(toast => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, x: 50, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+              className="bg-white border border-slate-100 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] w-72 md:w-80 pointer-events-auto overflow-hidden cursor-pointer"
+              onClick={() => handleToastClick(toast)}
+            >
+              <div className="p-4 flex gap-3 items-start">
+                <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                  {(toast.senderName || "U").substring(0, 2).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 truncate">{toast.senderName}</p>
+                  <p className="text-[13px] text-slate-500 mt-0.5 line-clamp-2">
+                    {toast.type === "message" ? "Sent you a new message" : "Wants to connect with you"}
+                  </p>
+                </div>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveToasts(prev => prev.filter(t => t.id !== toast.id));
+                  }}
+                  className="text-slate-400 hover:text-slate-600 p-1 bg-transparent border-none"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
     </>
   );
 };
